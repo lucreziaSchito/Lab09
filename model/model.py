@@ -12,6 +12,9 @@ class Model:
         self._costo = 0
 
         # TODO: Aggiungere eventuali altri attributi
+        self._escursioni_parco = []
+        self._max_giorni = None
+        self._max_budget = None
 
         # Caricamento
         self.load_escursioni()
@@ -39,6 +42,21 @@ class Model:
             --> Ogni PuntoInteresse ha un set di Escursioni.
         """
         # TODO
+        relazioni = EscursioneDAO.get_escursioni_punti_interesse()
+        if relazioni is None:
+            return
+
+        for row in relazioni:
+            id_escursione = row["id_escursione"]
+            id_punto_int = row["id_punto_interesse"]
+
+            if id_escursione in self.escursioni_map and id_punto_int in self.punti_interesse_map:
+                escursione = self.escursioni_map[id_escursione]
+                punto = self.punti_interesse_map[id_punto_int]
+
+                # effettuo ora il popolamento dei set (ORM) per entrambi gli oggetti
+                escursione.punti_interesse.add(punto)
+                punto.escursioni.add(escursione)
 
     def genera_pacchetto(self, id_parco: str, max_giorni: int = None, max_budget: float = None):
         """
@@ -56,6 +74,19 @@ class Model:
         self._valore_ottimo = -1
 
         # TODO
+        self._max_giorni = max_giorni
+        self._max_budget = max_budget
+
+        # filtro le escursioni per prendere solo quelle del parco selezionato dall'utente
+        for escursione in self.escursioni_map.values():
+            if escursione.id_parco == id_parco:
+                self._escursioni_parco.append(escursione)
+
+        self._ricorsione(0,[],0,0.0,0, set())
+
+        # se non trovo nessun pacchetto che soddisfi la richiesta stampo 0 anzichè un valore negativo sulla UI
+        if self._valore_ottimo == -1:
+            self._valore_ottimo = 0
 
         return self._pacchetto_ottimo, self._costo, self._valore_ottimo
 
