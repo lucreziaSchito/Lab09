@@ -78,9 +78,10 @@ class Model:
         self._max_budget = max_budget
 
         # filtro le escursioni per prendere solo quelle del parco selezionato dall'utente
-        for escursione in self.escursioni_map.values():
-            if escursione.id_parco == id_parco:
-                self._escursioni_parco.append(escursione)
+        self._escursioni_parco = [
+            escursione for escursione in self.escursioni_map.values()
+            if escursione.id_parco == id_parco]
+        # ricreo la lista da zero ogni volta che l'utente preme "Genera Pacchetto"
 
         self._ricorsione(0,[],0,0.0,0, set())
 
@@ -99,30 +100,28 @@ class Model:
             self._pacchetto_ottimo = pacchetto_parziale.copy()
             self._costo = costo_corrente
 
-            # questo garantisce che il primo vincolo sia rispettato
-            for i in range(start_index, len(self._escursioni_parco)):
-                escursione = self._escursioni_parco[i]
-                # secondo vincolo : punti d'interesse non duplicati
-                if punti_usati.intersection(escursione.punti_interesse):
-                    continue
-                # terzo vincolo : giorni max
-                durata_corrente += escursione.durata_giorni
-                if self._max_giorni is not None and (durata_corrente > self._max_giorni):
-                    continue
-                # quarto vincolo : budget max
-                costo_corrente += escursione.costo
-                if self._max_budget is not None and (costo_corrente > self._max_budget):
-                    continue
-                # il comando continue fa saltare tutto il resto del codice dentro questo giro del ciclo e passa immediatamente all'elemento successivo
+        # questo garantisce che il primo vincolo sia rispettato
+        for i in range(start_index, len(self._escursioni_parco)):
+            escursione = self._escursioni_parco[i]
+            # secondo vincolo : punti d'interesse non duplicati
+            if punti_usati.intersection(escursione.punti_interesse):
+                continue
+            # terzo vincolo : giorni max
+            if self._max_giorni is not None and (durata_corrente + escursione.durata_giorni > self._max_giorni):
+                continue
+            # quarto vincolo : budget max
+            if self._max_budget is not None and (costo_corrente + escursione.costo > self._max_budget):
+                continue
+            # il comando continue fa saltare tutto il resto del codice dentro questo giro del ciclo e passa immediatamente all'elemento successivo
 
-                valore_corrente += sum(p.voto_visitatori for p in escursione.punti_interesse)
-                pacchetto_parziale.append(escursione)
-                punti_usati.update(escursione.punti_interesse)
-                # prendo tutti i punti di interesse dell'escursione corrente e li aggiunge all'insieme dei punti usati
+            votazione =  sum(p.voto_visitatori for p in escursione.punti_interesse)
+            pacchetto_parziale.append(escursione)
+            punti_usati.update(escursione.punti_interesse)
+            # prendo tutti i punti di interesse dell'escursione corrente e li aggiunge all'insieme dei punti usati
 
-                self._ricorsione(start_index+1, pacchetto_parziale, durata_corrente, costo_corrente,
-                                 valore_corrente, punti_usati)
-                #backtrakking
-                pacchetto_parziale.pop()
-                punti_usati.difference_update(escursione.punti_interesse)
-                # metodo dei set in Python che modifica l'insieme direttamente sul posto, tolgo dai punti usati i punti d'interesse appena aggiunti
+            self._ricorsione(i + 1, pacchetto_parziale, durata_corrente + escursione.durata_giorni, costo_corrente + escursione.costo,
+                             valore_corrente + votazione, punti_usati)
+            #backtrakking
+            pacchetto_parziale.pop()
+            punti_usati.difference_update(escursione.punti_interesse)
+            # metodo dei set in Python che modifica l'insieme direttamente sul posto, tolgo dai punti usati i punti d'interesse appena aggiunti
